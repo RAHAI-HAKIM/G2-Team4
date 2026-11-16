@@ -1,0 +1,32 @@
+# CODEOWNERS — who is asked to review changes to each part of the repository.
+# GitHub requests these reviewers automatically when a pull request touches the path.
+# The LAST matching pattern wins.
+#
+# Roles come from the specification §14. Lines to be replaced
+# with the GitHub handle of the member who takes that role once roles are assigned
+# (Sprint 0 planning). A path can list several owners separated by spaces.
+
+# Default: product owner reviews anything not covered below
+*                           @RAHAI-HAKIM
+
+# Backend lead — data model, REST API, workflow engine, audit trail
+/backend/                   @RAHAI-HAKIM
+
+# Frontend and PWA lead — React app, shop-floor mode, RTL
+/frontend/                  @RAHAI-HAKIM
+
+# QA, security and compliance — test plans, E2E, reference validation
+/e2e/                       @RAHAI-HAKIM
+/docs/compliance/           @RAHAI-HAKIM
+
+# Data, analytics and DevOps — CI, Docker, backups
+/infra/                     @RAHAI-HAKIM
+/.github/workflows/         @RAHAI-HAKIM
+
+# UX, documentation and business plan
+/docs/                      @RAHAI-HAKIM
+
+# Product owner — requirements and process are the PO's responsibility
+/docs/srs/                  @RAHAI-HAKIM
+/docs/process/              @RAHAI-HAKIM
+/.github/CODEOWNERS         @RAHAI-HAKIM
