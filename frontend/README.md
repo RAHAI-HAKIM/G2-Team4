@@ -1,7 +1,23 @@
 # Frontend — React + TypeScript
 
-> Status: placeholder. The Vite project is created in Sprint 0 (`EN-003`). This file
-> describes the agreed structure so everyone builds in the same place.
+> Status: **F4 inspection prototype** (mock data, no backend yet). The planned structure
+> below is the target once the prototype is split up.
+
+## Current prototype
+
+```bash
+npm install
+npm run dev     # http://localhost:5173/inspection
+npm run build   # type-check + production build
+npm run lint    # oxlint
+```
+
+- Everything lives in `src/features/inspection/InspectionPage.tsx` (types, mock data, sampling, translations, steps).
+- Fonts are self-hosted with `@fontsource` (Inter, Roboto Mono, Noto Sans Arabic), imported in `src/main.tsx`.
+- Brand mark: `src/assets/brand/logo.svg` (placeholder — replace it) and `public/favicon.svg`.
+- Sampling: ISO 2859-1 Table 1 + Table 2-A at AQL 2.5, levels I and II; sample capped at the lot size. To be verified against the standard and moved to the backend.
+- Measurements start empty; the inspector must type each value.
+- Light theme only, following the design system: colour tokens in `src/styles/themes.css`, sizes and radii in `variables.css`. Language switch (FR/AR) is in the header; EN exists for development only.
 
 **Lead:** Frontend and PWA lead (spec §14) · **Stack:** React, TypeScript (strict), Vite,
 React Router, TanStack Query, i18next, ECharts, Vitest.

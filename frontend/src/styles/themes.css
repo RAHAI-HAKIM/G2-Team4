@@ -1,0 +1,47 @@
+/* ==========================================================================
+   themes.css — Crucible colour tokens (light theme only, per the design system)
+
+   Primary   #0062CC   Brand blue #007BFF   Brand mint #24C759
+   Surface   #F2F4F7   Dark slate #20293A
+   Text colours are darker than the brand colours so they meet WCAG AA.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces (names kept from the previous glass theme) */
+  --glass: #ffffff; /* cards */
+  --glass-inset: #f8fafc; /* sub-cards inside a card */
+  --glass-border: #e2e8f0;
+
+  --line: #e2e8f0;
+  --header-bg: #20293a;
+  --header-text: #ffffff;
+  --header-muted: #a9b4c4;
+  --header-chip: rgba(255, 255, 255, 0.08);
+
+  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.05);
+
+  /* Typography */
+  --text: #20293a;
+  --text-muted: #5b6b7f;
+
+  /* Accent */
+  --accent: #0062cc;
+  --accent-hover: #0052ab;
+  --accent-text: #0062cc;
+  --accent-soft: #e6f0fb;
+  --accent-soft-border: #b9d4f2;
+
+  /* Status */
+  --ok-text: #15803d;
+  --err-text: #c62828;
+  --warn-text: #8a5a00;
+
+  /* Controls */
+  --option-bg: #ffffff;
+  --step-dot: #e2e8f0;
+
+  /* Background */
+  --page-bg: #f2f4f7;
+}
