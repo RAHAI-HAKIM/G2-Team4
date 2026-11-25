@@ -620,6 +620,34 @@ html[dir='rtl'] .step-nav li + li::before {
   color: var(--err-text);
 }
 
+.hint--muted {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* "Next" stays clickable to explain why it is blocked, but looks disabled */
+.btn--primary[aria-disabled='true'] {
+  background: #9cc3ec;
+}
+
+/* Brief highlight when the inspector moves to another unit */
+.unit-bar--changed {
+  animation: unit-changed 0.9s ease-out;
+}
+
+@keyframes unit-changed {
+  from {
+    background: var(--accent-soft);
+    border-color: var(--accent-soft-border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unit-bar--changed {
+    animation: none;
+  }
+}
+
 /* --------------------------------------------------------------------------
    6. Step 1 — Lot
    -------------------------------------------------------------------------- */

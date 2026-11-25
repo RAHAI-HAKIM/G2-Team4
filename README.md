@@ -103,15 +103,47 @@ specification:
 
 ## Getting started
 
-> The application skeleton is being set up during Sprint 0. Each folder's README will
-> contain its exact setup commands as soon as it exists.
+### Running the prototype (F4 inspection)
+
+The app is **two programs running at the same time**, each in its own terminal:
+
+| | Backend (Django) | Frontend (React / Vite) |
+|---|---|---|
+| What it does | Stores lots, inspections and defects; computes sampling and the decision | The screens the user clicks |
+| Started with | `python manage.py runserver` | `npm run dev` |
+| Address | http://127.0.0.1:8000 (API only, no pages) | **http://localhost:5173/inspection** ← open this |
+
+The frontend forwards every `/api/...` call to the backend, so if the backend is not
+running the screen shows "Serveur injoignable".
+
+**When to do what**
+
+| When | Where | Command |
+|------|-------|---------|
+| Once, after cloning | `backend/` | `python -m venv .venv` then `.venv\Scripts\activate` then `pip install -r requirements.txt` |
+| Once, after cloning | `frontend/` | `npm install` |
+| After cloning, and after every pull that adds a file in `backend/inspections/migrations/` | `backend/` | `python manage.py migrate` (creates/updates `db.sqlite3` and the demo lots) |
+| Every time you work or demo | `backend/` (venv activated) | `python manage.py runserver` |
+| Every time you work or demo (second terminal) | `frontend/` | `npm run dev` |
+| Before a demo, or when every lot is already inspected | `backend/` | `python manage.py reset_demo` (dev only, erases inspections) |
+| Before pushing | `backend/` · `frontend/` | `python manage.py test` · `npm run build` and `npm run lint` |
+| After a pull that changes `requirements.txt` / `package.json` | `backend/` · `frontend/` | `pip install -r requirements.txt` · `npm install` |
+
+On macOS/Linux activate the venv with `source .venv/bin/activate`.
+
+**Showing it to others:** run both on your laptop and open `localhost:5173` (or project it).
+GitHub Pages cannot host this version: it only serves static files, and the app needs the
+Django server running. A public demo would need a small host for Django (later, with the
+Algerian-hosting decision R2).
+
+### Prerequisites
 
 Prerequisites for every developer:
 
 - Git ≥ 2.40, with `core.autocrlf` left at its default — the repo's `.gitattributes` handles line endings
 - Python 3.12 (the version used in CI and Docker)
 - Node.js 22 LTS or newer, npm
-- Docker Desktop (for PostgreSQL and the full stack); a locally installed PostgreSQL 16 works as a fallback
+- Docker Desktop (for PostgreSQL and the full stack, later); **not needed for the prototype**, which uses SQLite
 - An editor that honours [`.editorconfig`](.editorconfig)
 
 ```bash
