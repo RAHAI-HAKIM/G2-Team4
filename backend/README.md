@@ -1,7 +1,28 @@
 # Backend — Django modular monolith
 
-> Status: placeholder. The Django project is created in Sprint 0 (`EN-002`). This file
-> describes the agreed structure so everyone builds in the same place.
+> Status: **minimal backend for the F4 inspection prototype** (one app, SQLite, no login).
+> The planned structure below is the target for the real product.
+
+## Current prototype
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate            # Windows  (macOS/Linux: source .venv/bin/activate)
+pip install -r requirements.txt
+python manage.py migrate          # creates db.sqlite3 and the 4 demo lots
+python manage.py runserver        # http://127.0.0.1:8000
+python manage.py test             # sampling + API tests
+python manage.py reset_demo       # dev only: put every lot back to "awaiting"
+```
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/catalog/` | Lines → work orders → lots (status + ISO 2859-1 sampling plan), and the inspection plans |
+| `POST /api/inspections/` | `{lot, inspector, pin, inspectedUnits, defects[]}` → server validates, recomputes accept/reject, numbers defects `DEF-YYYY-NNNN`, sets the lot to accepted or on hold |
+
+- `inspections/sampling.py` — ISO 2859-1 tables (AQL 2.5, levels I/II); to verify against the standard.
+- `inspections/data.py` — lines, work orders and plans as static data (configuration screens come later).
+- `inspections/services.py` — validation and decision logic; `views.py` only translates HTTP.
 
 **Lead:** Backend lead (spec §14) · **Stack:** Python 3.12, Django, Django REST Framework,
 PostgreSQL 16, NumPy/SciPy, WeasyPrint.

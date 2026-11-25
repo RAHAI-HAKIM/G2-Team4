@@ -13,8 +13,10 @@
  *   Header / Preferences ......... components/layout (Header, AppLayout)
  *   Step components .............. features/inspection/components
  *
- * There is no backend yet: lots, plans and the user are mock data, and defect
- * IDs are generated locally.
+ * Data comes from the Django backend (/api, proxied by Vite): GET /api/catalog/
+ * for lines, lots, plans and sampling plans; POST /api/inspections/ to sign.
+ * The server recomputes the decision, numbers the defects and updates the lot.
+ * The user is still mock data (no login in the prototype).
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -66,13 +68,18 @@ type Characteristic = AttributeCharacteristic | MeasureCharacteristic;
 
 interface Plan {
   version: string;
+  aql: number;
   characteristics: Characteristic[];
 }
+
+type LotStatus = 'awaiting' | 'accepted' | 'on_hold';
 
 interface Lot {
   id: string;
   size: number;
   level: InspectionLevel;
+  status: LotStatus;
+  sampling: SamplingPlan; // computed by the server (ISO 2859-1)
 }
 
 interface WorkOrder {
@@ -120,152 +127,56 @@ interface Selection {
   lotId: string;
 }
 
+interface Catalog {
+  lines: Line[];
+  plans: Record<PlanKey, Plan>;
+}
+
+interface InspectionResult {
+  decision: 'accept' | 'reject';
+  lotStatus: LotStatus;
+  defects: { reference: string; unit: number; characteristic: CharacteristicKey }[];
+}
+
 /* ==========================================================================
-   Domain data (mock) and sampling
+   Constants and API client
    ========================================================================== */
 
 const LANGS = ['en', 'fr', 'ar'] as const;
 
-const AQL = 2.5;
-const FIRST_DEFECT_NO = 892; // mock sequence — the backend will own IDs later
+async function readJson<T>(response: Response): Promise<T> {
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`);
+  return body as T;
+}
 
-const PLANS: Record<PlanKey, Plan> = {
-  filling: {
-    version: 'v3.4',
-    characteristics: [
-      { kind: 'attribute', key: 'cap', severity: 'major' },
-      { kind: 'attribute', key: 'label', severity: 'minor' },
-      {
-        kind: 'measure',
-        key: 'volume',
-        severity: 'critical',
-        unit: 'ml',
-        lsl: 495,
-        target: 498,
-        usl: 500,
-        decimals: 0,
-      },
-    ],
-  },
-  packaging: {
-    version: 'v2.1',
-    characteristics: [
-      { kind: 'attribute', key: 'seal', severity: 'major' },
-      { kind: 'attribute', key: 'code', severity: 'minor' },
-      {
-        kind: 'measure',
-        key: 'weight',
-        severity: 'major',
-        unit: 'kg',
-        lsl: 9.1,
-        target: 9.3,
-        usl: 9.5,
-        decimals: 1,
-      },
-    ],
-  },
-};
+const fetchCatalog = () => fetch('/api/catalog/').then((r) => readJson<Catalog>(r));
 
-const LINES: Line[] = [
-  {
-    key: 'line1',
-    plan: 'packaging',
-    product: 'waterPack',
-    workOrders: [
-      {
-        id: 'OF-2026-1102',
-        shift: 'morning',
-        lots: [{ id: 'LOT-2026-0415', size: 1200, level: 'I' }],
-      },
-    ],
-  },
-  {
-    key: 'line2',
-    plan: 'filling',
-    product: 'water',
-    workOrders: [
-      {
-        id: 'OF-2026-1104',
-        shift: 'morning',
-        lots: [
-          { id: 'LOT-2026-0417', size: 3200, level: 'I' },
-          { id: 'LOT-2026-0418', size: 900, level: 'I' },
-        ],
-      },
-      {
-        id: 'OF-2026-1103',
-        shift: 'afternoon',
-        lots: [{ id: 'LOT-2026-0416', size: 3200, level: 'I' }],
-      },
-    ],
-  },
-];
+interface InspectionPayload {
+  lot: string;
+  inspector: string;
+  pin: string;
+  inspectedUnits: number;
+  defects: { unit: number; characteristic: CharacteristicKey; value?: number }[];
+}
 
-const DEFAULT_SELECTION: Selection = {
-  lineKey: 'line2',
-  workOrderId: 'OF-2026-1104',
-  lotId: 'LOT-2026-0417',
-};
+const submitInspection = (payload: InspectionPayload) =>
+  fetch('/api/inspections/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((r) => readJson<InspectionResult>(r));
 
-/**
- * ISO 2859-1 (ANSI/ASQ Z1.4, MIL-STD-105E) — single sampling, normal
- * inspection, AQL 2.5.
- *
- * Step 1: lot size + general inspection level → sample-size code letter (Table 1).
- * Step 2: code letter → sample size and Ac / Re numbers (Table 2-A).
- *
- * Where Table 2-A shows an arrow at AQL 2.5, the plan the arrow points to is
- * used: A, B, D → C (n=5, 0/1); E → F (n=20, 1/2); P, Q → N (n=500, 21/22).
- * If the sample size is not smaller than the lot, the whole lot is inspected
- * (100 %), with Ac / Re unchanged.
- *
- * Values cross-checked against published reproductions of the tables
- * (aqlchart.com, tetrainspection.com — Nov 2026). They must still be verified
- * cell by cell against the standard itself (SRS VER-02); the backend will own
- * this table.
- */
-const CODE_LETTERS: ReadonlyArray<{ max: number } & Record<InspectionLevel, string>> = [
-  { max: 8, I: 'A', II: 'A' },
-  { max: 15, I: 'A', II: 'B' },
-  { max: 25, I: 'B', II: 'C' },
-  { max: 50, I: 'C', II: 'D' },
-  { max: 90, I: 'C', II: 'E' },
-  { max: 150, I: 'D', II: 'F' },
-  { max: 280, I: 'E', II: 'G' },
-  { max: 500, I: 'F', II: 'H' },
-  { max: 1200, I: 'G', II: 'J' },
-  { max: 3200, I: 'H', II: 'K' },
-  { max: 10000, I: 'J', II: 'L' },
-  { max: 35000, I: 'K', II: 'M' },
-  { max: 150000, I: 'L', II: 'N' },
-  { max: 500000, I: 'M', II: 'P' },
-  { max: Number.POSITIVE_INFINITY, I: 'N', II: 'Q' },
-];
-
-const PLAN_BY_LETTER: Record<string, Omit<SamplingPlan, 'codeLetter'>> = {
-  A: { sampleSize: 5, ac: 0, re: 1 },
-  B: { sampleSize: 5, ac: 0, re: 1 },
-  C: { sampleSize: 5, ac: 0, re: 1 },
-  D: { sampleSize: 5, ac: 0, re: 1 },
-  E: { sampleSize: 20, ac: 1, re: 2 },
-  F: { sampleSize: 20, ac: 1, re: 2 },
-  G: { sampleSize: 32, ac: 2, re: 3 },
-  H: { sampleSize: 50, ac: 3, re: 4 },
-  J: { sampleSize: 80, ac: 5, re: 6 },
-  K: { sampleSize: 125, ac: 7, re: 8 },
-  L: { sampleSize: 200, ac: 10, re: 11 },
-  M: { sampleSize: 315, ac: 14, re: 15 },
-  N: { sampleSize: 500, ac: 21, re: 22 },
-  P: { sampleSize: 500, ac: 21, re: 22 },
-  Q: { sampleSize: 500, ac: 21, re: 22 },
-};
-
-function getSamplingPlan(lotSize: number, level: InspectionLevel): SamplingPlan {
-  const row = CODE_LETTERS.find((r) => lotSize <= r.max) ?? CODE_LETTERS[CODE_LETTERS.length - 1];
-  const codeLetter = row[level];
-  const plan = PLAN_BY_LETTER[codeLetter];
-  // Sample size can never exceed the lot: inspect 100 % instead.
-  return { codeLetter, ...plan, sampleSize: Math.min(plan.sampleSize, lotSize) };
+/** First lot still awaiting inspection, or the very first lot. */
+function initialSelection(lines: Line[]): Selection {
+  for (const line of lines) {
+    for (const w of line.workOrders) {
+      const lot = w.lots.find((l) => l.status === 'awaiting');
+      if (lot) return { lineKey: line.key, workOrderId: w.id, lotId: lot.id };
+    }
+  }
+  const line = lines[0];
+  return { lineKey: line.key, workOrderId: line.workOrders[0].id, lotId: line.workOrders[0].lots[0].id };
 }
 
 /** Checks a typed reading against the specification limits. */
@@ -278,12 +189,19 @@ function evaluateMeasure(c: MeasureCharacteristic, raw: string): MeasureStatus {
   return { state: 'ok' };
 }
 
-const formatDefectId = (n: number) => `DEF-2026-${String(n).padStart(4, '0')}`;
+/** Draft number shown until the server assigns the DEF-YYYY-NNNN reference. */
+const formatDraftId = (n: number) => `#${n}`;
 
 const formatInt = (n: number, lang: Lang) =>
   new Intl.NumberFormat(lang === 'ar' ? 'ar-u-nu-latn' : lang).format(n);
 
-const findLine = (key: LineKey): Line => LINES.find((l) => l.key === key) ?? LINES[0];
+const findLine = (lines: Line[], key: LineKey): Line => lines.find((l) => l.key === key) ?? lines[0];
+
+const LOT_STATUS_PILL: Record<LotStatus, string> = {
+  awaiting: 'pill--info',
+  accepted: 'pill--ok',
+  on_hold: 'pill--warn',
+};
 
 const SEVERITY_TONE: Record<Severity, Tone> = {
   critical: 'err',
@@ -406,6 +324,12 @@ const EN = {
   signedHold: (name: string) => `Lot ON HOLD · signed by ${name}`,
   signedAccept: (name: string) => `Lot accepted · signed by ${name}`,
   newInspection: 'New inspection',
+  lotStatus: { awaiting: 'Awaiting inspection', accepted: 'Accepted', on_hold: 'On hold' },
+  lotDone: 'This lot has already been inspected. Choose another lot.',
+  loading: 'Loading…',
+  loadError: 'Cannot reach the server. Is the backend running?',
+  retry: 'Retry',
+  signFailed: (reason: string) => `Signature refused: ${reason}`,
   defectAdded: (id: string) => `Defect recorded · ${id}`,
   defectRemoved: (id: string) => `Defect removed · ${id}`,
 };
@@ -522,6 +446,12 @@ const FR: Dict = {
   signedHold: (name) => `Lot EN ATTENTE · signé par ${name}`,
   signedAccept: (name) => `Lot accepté · signé par ${name}`,
   newInspection: 'Nouvelle inspection',
+  lotStatus: { awaiting: 'À inspecter', accepted: 'Accepté', on_hold: 'En attente' },
+  lotDone: 'Ce lot a déjà été inspecté. Choisissez un autre lot.',
+  loading: 'Chargement…',
+  loadError: 'Serveur injoignable. Le backend est-il démarré ?',
+  retry: 'Réessayer',
+  signFailed: (reason) => `Signature refusée : ${reason}`,
   defectAdded: (id) => `Défaut enregistré · ${id}`,
   defectRemoved: (id) => `Défaut retiré · ${id}`,
 };
@@ -581,7 +511,7 @@ const AR: Dict = {
   previous: 'السابقة',
   nextUnit: 'الوحدة التالية',
   toDecision: 'الانتقال للقرار',
-  target: 'Target',
+  target: 'الهدف',
   outOfLimit: (value, unit, direction, limit) =>
     `خارج الحد المسموح: ${value} ${unit}، ${direction === 'over' ? 'الحد الأقصى' : 'الحد الأدنى'} ${limit} ${unit}`,
   blockedRecord: 'سجّل العيب قبل الانتقال إلى الوحدة التالية.',
@@ -631,6 +561,12 @@ const AR: Dict = {
   signedHold: (name) => `الدفعة قيد الحجز · وقّعها ${name}`,
   signedAccept: (name) => `تم قبول الدفعة · وقّعها ${name}`,
   newInspection: 'فحص جديد',
+  lotStatus: { awaiting: 'بانتظار الفحص', accepted: 'مقبولة', on_hold: 'قيد الحجز' },
+  lotDone: 'تم فحص هذه الدفعة مسبقاً. اختر دفعة أخرى.',
+  loading: 'جارٍ التحميل…',
+  loadError: 'تعذّر الاتصال بالخادم. هل الخادم يعمل؟',
+  retry: 'إعادة المحاولة',
+  signFailed: (reason) => `تم رفض التوقيع: ${reason}`,
   defectAdded: (id) => `تم تسجيل العيب ${id}`,
   defectRemoved: (id) => `تمت إزالة العيب ${id}`,
 };
@@ -698,9 +634,10 @@ function useInspectionSession(
   const [volumes, setVolumes] = useState<Record<string, string>>({});
   const [completed, setCompleted] = useState<Record<number, boolean>>({});
   const [defects, setDefects] = useState<Defect[]>([]);
-  const [defectSeq, setDefectSeq] = useState(FIRST_DEFECT_NO);
+  const [defectSeq, setDefectSeq] = useState(1);
   const [pin, setPin] = useState('');
   const [signed, setSigned] = useState(false);
+  const [busy, setBusy] = useState(false); // waiting for the server
 
   const locked = signed; // after signing, the inspection is read-only
 
@@ -728,7 +665,7 @@ function useInspectionSession(
   /* ---- Defects ---- */
 
   const addDefect = (draft: Omit<Defect, 'id'>) => {
-    const id = formatDefectId(defectSeq);
+    const id = formatDraftId(defectSeq);
     setDefectSeq((n) => n + 1);
     setDefects((prev) => [...prev, { ...draft, id }]);
     onDefectEvent({ type: 'added', id });
@@ -798,7 +735,7 @@ function useInspectionSession(
   const outcome: Outcome =
     defectiveUnits >= sampling.re ? 'reject' : inspected >= sampling.sampleSize ? 'accept' : 'pending';
 
-  const canSign = !signed && outcome !== 'pending' && pin.length === 4;
+  const canSign = !signed && !busy && outcome !== 'pending' && pin.length === 4;
 
   const pressDigit = (digit: string) => {
     if (!locked) setPin((p) => (p.length < 4 ? p + digit : p));
@@ -807,11 +744,34 @@ function useInspectionSession(
     if (!locked) setPin('');
   };
 
-  /** Prototype: any 4-digit PIN signs. Returns true when the signature went through. */
-  const sign = () => {
-    if (!canSign) return false;
-    setSigned(true);
-    return true;
+  /**
+   * Sends the inspection to the server, which recomputes the decision, records
+   * it and returns the defect references. Any 4-digit PIN is accepted (no login
+   * in the prototype). Throws with the server's message if it refuses.
+   */
+  const sign = async (lotId: string, inspector: string): Promise<InspectionResult> => {
+    if (!canSign) throw new Error('not ready to sign');
+    setBusy(true);
+    try {
+      const result = await submitInspection({
+        lot: lotId,
+        inspector,
+        pin,
+        // Rejection can happen before the current unit was confirmed with "Next".
+        inspectedUnits: Math.max(inspected, ...defects.map((d) => d.unit)),
+        defects: defects.map((d) => ({ unit: d.unit, characteristic: d.key, value: d.value })),
+      });
+      setDefects((prev) =>
+        prev.map((d) => {
+          const saved = result.defects.find((x) => x.unit === d.unit && x.characteristic === d.key);
+          return saved ? { ...d, id: saved.reference } : d;
+        }),
+      );
+      setSigned(true);
+      return result;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const reset = () => {
@@ -884,7 +844,7 @@ const SWITCH_LANGS: readonly Lang[] = ['fr', 'ar'];
 interface HeaderProps {
   t: Dict;
   lang: Lang;
-  lineKey: LineKey;
+  lineKey: LineKey | null;
   onLang: (lang: Lang) => void;
 }
 
@@ -900,7 +860,8 @@ function AppHeader({ t, lang, lineKey, onLang }: HeaderProps) {
       </div>
       <div className="app-header__right">
         <span className="app-header__context">
-          {t.plant} · {t.lines[lineKey]}
+          {t.plant}
+          {lineKey && ` · ${t.lines[lineKey]}`}
         </span>
         <div className="segmented segmented--sm" dir="ltr" role="group" aria-label={t.language}>
           {SWITCH_LANGS.map((l) => (
@@ -930,6 +891,7 @@ function AppHeader({ t, lang, lineKey, onLang }: HeaderProps) {
 interface LotStepProps {
   t: Dict;
   lang: Lang;
+  lines: Line[];
   line: Line;
   workOrder: WorkOrder;
   lot: Lot;
@@ -943,6 +905,7 @@ interface LotStepProps {
 function LotStep({
   t,
   lang,
+  lines,
   line,
   workOrder,
   lot,
@@ -964,7 +927,7 @@ function LotStep({
             value={line.key}
             onChange={(e) => onLine(e.target.value as LineKey)}
           >
-            {LINES.map((l) => (
+            {lines.map((l) => (
               <option key={l.key} value={l.key}>
                 {t.lines[l.key]}
               </option>
@@ -1011,6 +974,7 @@ function LotStep({
             <span className="label">{t.lotDetails}</span>
             <span className="pill pill--info">{t.shifts[workOrder.shift]}</span>
           </div>
+          <span className={`pill ${LOT_STATUS_PILL[lot.status]}`}>{t.lotStatus[lot.status]}</span>
           <span className="mono card__value" dir="ltr">
             {lot.id}
           </span>
@@ -1032,7 +996,13 @@ function LotStep({
       </div>
 
       <div className="step-actions step-actions--end">
-        <button type="button" className="btn btn--primary" onClick={onContinue}>
+        {lot.status !== 'awaiting' && <span className="hint hint--err">{t.lotDone}</span>}
+        <button
+          type="button"
+          className="btn btn--primary"
+          disabled={lot.status !== 'awaiting'}
+          onClick={onContinue}
+        >
           {t.cont}
           <Arrow />
         </button>
@@ -1048,13 +1018,14 @@ function LotStep({
 interface SamplingStepProps {
   t: Dict;
   lang: Lang;
+  aql: number;
   lot: Lot;
   sampling: SamplingPlan;
   onBack: () => void;
   onStart: () => void;
 }
 
-function SamplingStep({ t, lang, lot, sampling, onBack, onStart }: SamplingStepProps) {
+function SamplingStep({ t, lang, aql, lot, sampling, onBack, onStart }: SamplingStepProps) {
   return (
     <section className="glass panel">
       <div className="grid grid--3">
@@ -1071,7 +1042,7 @@ function SamplingStep({ t, lang, lot, sampling, onBack, onStart }: SamplingStepP
         <div className="inset stat">
           <div className="label">AQL</div>
           <div className="mono stat__value" dir="ltr">
-            {AQL} %
+            {aql} %
           </div>
         </div>
         <div className="inset stat stat--accent">
@@ -1164,9 +1135,10 @@ interface MeasureRowProps {
   locked: boolean;
   onChange: (raw: string) => void;
   onRecord: () => void;
+  autoFocus?: boolean;
 }
 
-function MeasureRow({ t, c, raw, defect, locked, onChange, onRecord }: MeasureRowProps) {
+function MeasureRow({ t, c, raw, defect, locked, onChange, onRecord, autoFocus }: MeasureRowProps) {
   const text = t.measures[c.key];
   const status = evaluateMeasure(c, raw);
   const isOut = status.state === 'out';
@@ -1177,7 +1149,7 @@ function MeasureRow({ t, c, raw, defect, locked, onChange, onRecord }: MeasureRo
         <div className="char-row__name">{text.name}</div>
         <div className="char-row__hint char-row__hint--limits">
           <bdi className="mono">
-            LSL {c.lsl} · {t.target} {c.target} · USL {c.usl} {c.unit}
+            LSL {c.lsl} · {t.target} {c.target} · USL {c.usl} {t.unitNames[c.unit]}
           </bdi>
         </div>
         {status.state === 'out' && (
@@ -1196,13 +1168,14 @@ function MeasureRow({ t, c, raw, defect, locked, onChange, onRecord }: MeasureRo
         <input
           className={`field mono measure-entry__input${isOut ? ' is-invalid' : ''}`}
           inputMode="decimal"
+          autoFocus={autoFocus}
           value={raw}
           disabled={locked}
           aria-label={text.name}
           aria-invalid={isOut}
           onChange={(e) => onChange(e.target.value)}
         />
-        <span className="mono measure-entry__unit">{c.unit}</span>
+        <span className="measure-entry__unit">{t.unitNames[c.unit]}</span>
         {isOut &&
           (defect ? (
             <span className="pill pill--err">{t.defectLogged}</span>
@@ -1228,13 +1201,23 @@ function UnitsStep({ t, lot, plan, sampling, session }: UnitsStepProps) {
   const { unit, locked, defectiveUnits } = session;
   const isLast = unit >= sampling.sampleSize;
   const block = session.blockReason();
+  // The hint turns red only after "Next" was pressed on this unit while blocked.
+  const [triedUnit, setTriedUnit] = useState<number | null>(null);
+  const tried = triedUnit === unit;
+  const firstMeasure = plan.characteristics.find((c) => c.kind === 'measure');
+
+  const handleNext = () => {
+    if (block) setTriedUnit(unit);
+    else session.advance();
+  };
 
   const tone: Tone =
     defectiveUnits === 0 ? 'ok' : defectiveUnits >= sampling.re ? 'err' : 'warn';
 
   return (
     <section className="stack">
-      <div className="glass unit-bar">
+      {/* key: remounts on every unit so the highlight animation replays */}
+      <div key={unit} className="glass unit-bar unit-bar--changed">
         <div className="unit-bar__id">
           <span className="unit-bar__title">
             {t.unit} {unit} {t.of} {sampling.sampleSize}
@@ -1269,6 +1252,7 @@ function UnitsStep({ t, lot, plan, sampling, session }: UnitsStepProps) {
               locked={locked}
               onChange={(raw) => session.changeMeasure(c, raw)}
               onRecord={() => session.recordMeasureDefect(c)}
+              autoFocus={!locked && c.key === firstMeasure?.key}
             />
           ),
         )}
@@ -1285,15 +1269,15 @@ function UnitsStep({ t, lot, plan, sampling, session }: UnitsStepProps) {
         </button>
         <div className="step-actions__end">
           {block && (
-            <span className="hint hint--err">
+            <span className={`hint${tried ? ' hint--err' : ' hint--muted'}`} role={tried ? 'alert' : undefined}>
               {block === 'record' ? t.blockedRecord : t.blockedValue}
             </span>
           )}
           <button
             type="button"
             className="btn btn--primary"
-            disabled={block !== null}
-            onClick={session.advance}
+            aria-disabled={block !== null}
+            onClick={handleNext}
           >
             {isLast ? t.toDecision : t.nextUnit}
             <Arrow />
@@ -1465,15 +1449,64 @@ function DecisionStep({ t, plan, sampling, session, onSign, onNewInspection }: D
 export default function InspectionPage() {
   const { lang, setLang } = usePreferences();
   const t = DICT[lang];
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const load = useCallback(() => {
+    fetchCatalog()
+      .then((data) => {
+        setCatalog(data);
+        setLoadFailed(false);
+      })
+      .catch(() => setLoadFailed(true));
+  }, []);
+
+  useEffect(() => load(), [load]);
+
+  if (!catalog || catalog.lines.length === 0) {
+    return (
+      <div className="app">
+        <AppHeader t={t} lang={lang} lineKey={null} onLang={setLang} />
+        <main className="app-main">
+          <section className="glass panel">
+            {loadFailed ? (
+              <div className="step-actions">
+                <span className="hint hint--err">{t.loadError}</span>
+                <button type="button" className="btn" onClick={load}>
+                  {t.retry}
+                </button>
+              </div>
+            ) : (
+              <p className="page-sub">{t.loading}</p>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  return <InspectionWorkspace t={t} lang={lang} onLang={setLang} catalog={catalog} reload={load} />;
+}
+
+interface WorkspaceProps {
+  t: Dict;
+  lang: Lang;
+  onLang: (lang: Lang) => void;
+  catalog: Catalog;
+  reload: () => void;
+}
+
+function InspectionWorkspace({ t, lang, onLang, catalog, reload }: WorkspaceProps) {
   const toast = useToast();
+  const { lines } = catalog;
 
-  const [selection, setSelection] = useState<Selection>(DEFAULT_SELECTION);
+  const [selection, setSelection] = useState<Selection>(() => initialSelection(lines));
 
-  const line = findLine(selection.lineKey);
+  const line = findLine(lines, selection.lineKey);
   const workOrder = line.workOrders.find((w) => w.id === selection.workOrderId) ?? line.workOrders[0];
   const lot = workOrder.lots.find((l) => l.id === selection.lotId) ?? workOrder.lots[0];
-  const plan = PLANS[line.plan];
-  const sampling = useMemo(() => getSamplingPlan(lot.size, lot.level), [lot]);
+  const plan = catalog.plans[line.plan];
+  const sampling = lot.sampling;
 
   const session = useInspectionSession(plan, sampling, (event) =>
     toast.show(event.type === 'added' ? t.defectAdded(event.id) : t.defectRemoved(event.id)),
@@ -1481,7 +1514,7 @@ export default function InspectionPage() {
 
   // Picking a different lot always starts a fresh inspection.
   const selectLine = (key: LineKey) => {
-    const next = findLine(key);
+    const next = findLine(lines, key);
     const firstOrder = next.workOrders[0];
     setSelection({ lineKey: key, workOrderId: firstOrder.id, lotId: firstOrder.lots[0].id });
     session.reset();
@@ -1499,9 +1532,14 @@ export default function InspectionPage() {
     session.reset();
   };
 
-  const handleSign = () => {
-    if (!session.sign()) return;
-    toast.show(session.outcome === 'reject' ? t.signedHold(t.userName) : t.signedAccept(t.userName));
+  const handleSign = async () => {
+    try {
+      const result = await session.sign(lot.id, t.userName);
+      toast.show(result.decision === 'reject' ? t.signedHold(t.userName) : t.signedAccept(t.userName));
+      reload(); // refresh lot statuses
+    } catch (e) {
+      toast.show(t.signFailed(e instanceof Error ? e.message : String(e)));
+    }
   };
 
   const { step, setStep } = session;
@@ -1509,7 +1547,7 @@ export default function InspectionPage() {
 
   return (
     <div className="app">
-      <AppHeader t={t} lang={lang} lineKey={line.key} onLang={setLang} />
+      <AppHeader t={t} lang={lang} lineKey={line.key} onLang={onLang} />
 
       <main className="app-main">
         <nav className="glass step-card" aria-label={t.stepsLabel}>
@@ -1542,6 +1580,7 @@ export default function InspectionPage() {
           <LotStep
             t={t}
             lang={lang}
+            lines={lines}
             line={line}
             workOrder={workOrder}
             lot={lot}
@@ -1557,6 +1596,7 @@ export default function InspectionPage() {
           <SamplingStep
             t={t}
             lang={lang}
+            aql={plan.aql}
             lot={lot}
             sampling={sampling}
             onBack={() => setStep(1)}
@@ -1576,7 +1616,7 @@ export default function InspectionPage() {
             session={session}
             onSign={handleSign}
             onNewInspection={() => {
-              setSelection(DEFAULT_SELECTION);
+              setSelection(initialSelection(lines));
               session.reset();
             }}
           />
