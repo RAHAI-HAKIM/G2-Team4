@@ -1,0 +1,59 @@
+/* ==========================================================================
+   variables.css — non-colour design tokens (type, layout, shape, motion)
+   and status fills. Colours live in themes.css.
+   ========================================================================== */
+
+:root {
+/* ---- Typography ---- */
+--font-sans: 'Inter', system-ui, Arial, sans-serif;
+--font-sans-ar: 'Noto Sans Arabic', 'Inter', Arial, sans-serif;
+--font-mono: 'Roboto Mono', ui-monospace, Consolas, monospace;
+
+/* Font weights */
+--weight-light: 300;
+--weight-regular: 400;
+--weight-medium: 500;
+--weight-bold: 700;
+
+
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 22px;
+  --fs-3xl: 26px;
+  --fs-4xl: 28px;
+  --fs-display: 42px;
+
+  /* ---- Layout ---- */
+  --rail: 24px; /* side gutter */
+  --header-h: 56px;
+  --page-max: 880px;
+
+  /* ---- Shape ---- */
+  --r-panel: 12px;
+  --r-field: 8px;
+  --r-icon: 8px;
+  --r-pill: 999px;
+
+    /* ---- Control sizes ---- */
+  --control-h: 44px;
+  --field-h: 44px;
+  --key-h: 44px;
+
+  /* ---- Motion ---- */
+  --dur-fast: 0.15s;
+  --dur: 0.2s;
+
+  /* ---- Status fills ---- */
+  --ok-bg: #e8f7ee;
+  --err-bg: #fdecec;
+  --warn-bg: #fff4d6;
+  --info-bg: #e6f0fb;
+
+  --danger-solid: #d32f2f;
+  --on-accent: #ffffff;
+}

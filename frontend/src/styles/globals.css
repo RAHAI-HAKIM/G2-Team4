@@ -1,0 +1,1040 @@
+/* ==========================================================================
+   globals.css — reset, shared primitives, app shell, inspection screens.
+   Tokens come from variables.css (fixed) and themes.css (dark / light).
+   Import order in main.tsx: variables → themes → globals.
+   ========================================================================== */
+
+/* Fonts are self-hosted via @fontsource packages imported in main.tsx
+   (no external font CDN — SRS PRIV-04). */
+
+/* --------------------------------------------------------------------------
+   1. Reset & base
+   -------------------------------------------------------------------------- */
+html,
+body {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-regular);
+}
+
+body {
+  color: var(--text);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+strong,
+b {
+  font-weight: var(--weight-bold);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: var(--weight-bold);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--page-bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+html[lang='ar'] body {
+  font-family: var(--font-sans-ar);
+}
+
+h1,
+p,
+ol,
+ul {
+  margin: 0;
+  padding: 0;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* --------------------------------------------------------------------------
+   2. Primitives
+   -------------------------------------------------------------------------- */
+
+/* Frosted panel */
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Quieter surface that sits inside a panel */
+.inset {
+  background: var(--glass-inset);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-field);
+}
+
+.label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* Letter-spacing breaks Arabic letter joining */
+html[dir='rtl'] .label {
+  letter-spacing: 0;
+}
+
+/* ---- Buttons ---- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--control-h);
+  padding: 0 20px;
+  border-radius: var(--r-field);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  transition: background var(--dur-fast);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--glass-inset);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--primary:disabled {
+  opacity: 1;
+  background: #9cc3ec;
+}
+
+/* Arrow icons follow the reading direction */
+html[dir='rtl'] .icon-dir {
+  transform: scaleX(-1);
+}
+
+.btn--sm {
+  min-height: 34px;
+  padding: 0 16px;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--danger {
+  background: var(--danger-solid);
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--danger-solid);
+  filter: brightness(1.08);
+}
+
+/* Two-state answer button (Conforming / Non-conforming) */
+.choice {
+  min-height: var(--key-h);
+  padding: 0 20px;
+  border-radius: var(--r-field);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  transition: background var(--dur-fast);
+}
+
+.choice[aria-pressed='false']:hover:not(:disabled) {
+  background: var(--glass-inset);
+}
+
+.choice:disabled {
+  opacity: 0.55;
+}
+
+.choice--ok[aria-pressed='true'] {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.choice--err[aria-pressed='true'] {
+  background: var(--err-bg);
+  color: var(--err-text);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-icon);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+}
+
+/* ---- Form fields ---- */
+
+.field-group {
+  display: block;
+}
+
+.field-group > .label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.field {
+  width: 100%;
+  min-height: var(--field-h);
+  padding: 0 16px;
+  border-radius: var(--r-field);
+  border: 1px solid #cbd5e1;
+  background: var(--glass);
+  font-size: var(--fs-base);
+}
+
+.field.is-invalid {
+  border-color: var(--err-text);
+}
+
+select.field option {
+  background: var(--option-bg);
+  color: var(--text);
+}
+
+/* ---- Pills ---- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.pill--lg {
+  padding: 9px 16px;
+  font-size: var(--fs-base);
+}
+
+.pill--ok {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.pill--err {
+  background: var(--err-bg);
+  color: var(--err-text);
+}
+
+.pill--warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.pill--info {
+  background: var(--info-bg);
+  color: var(--accent-text);
+}
+
+/* ---- Segmented switch (language) ---- */
+
+.segmented {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--r-field);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-inset);
+}
+
+.segmented button {
+  border: 0;
+  background: none;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.segmented--sm {
+  padding: 3px;
+}
+
+.segmented--sm button {
+  padding: 5px 10px;
+  font-size: var(--fs-2xs);
+}
+
+.segmented button.is-on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* --------------------------------------------------------------------------
+   3. App shell
+   -------------------------------------------------------------------------- */
+
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  height: var(--header-h);
+  padding: 0 var(--rail);
+  background: var(--header-bg);
+  color: var(--header-text);
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.brand__name {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Section tab (only "Inspection" for now) */
+.app-header__tab {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-field);
+  background: var(--header-chip);
+  box-shadow: inset 0 -2px 0 var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.app-header__context {
+  padding: 6px 12px;
+  border-radius: var(--r-field);
+  background: var(--header-chip);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-header .segmented {
+  background: var(--header-chip);
+  border-color: transparent;
+}
+
+.app-header .segmented button {
+  color: var(--header-muted);
+}
+
+.app-header .segmented button.is-on {
+  color: var(--on-accent);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+}
+
+.app-main {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 28px var(--rail) 72px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 28px;
+  inset-inline-start: var(--rail);
+  z-index: 9;
+  padding: 14px 22px;
+  font-size: var(--fs-base);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur);
+}
+
+.toast[data-visible='true'] {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   4. Step navigation + page title
+   -------------------------------------------------------------------------- */
+
+.step-card {
+  padding: 12px 14px;
+}
+
+.step-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.step-nav li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Chevron between steps, pointing the reading direction */
+.step-nav li + li::before {
+  content: '\203A';
+  padding: 0 10px;
+  font-size: var(--fs-lg);
+  color: var(--text-muted);
+}
+
+html[dir='rtl'] .step-nav li + li::before {
+  content: '\2039';
+}
+
+.nav-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--r-field);
+  background: none;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.nav-step:hover {
+  background: var(--glass-inset);
+}
+
+.nav-step__no {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--step-dot);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nav-step.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-border);
+}
+
+.nav-step.is-active .nav-step__no {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.page-head__text {
+  margin: 24px 0 16px;
+}
+
+.page-title {
+  font-size: var(--fs-2xl);
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.page-sub {
+  margin-top: 4px;
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   5. Layout helpers
+   -------------------------------------------------------------------------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+}
+
+.grid {
+  display: grid;
+  gap: 20px;
+}
+
+.grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid--tight {
+  gap: 14px;
+}
+
+.step-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.step-actions--end {
+  justify-content: flex-end;
+}
+
+.step-actions__end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-inline-start: auto;
+}
+
+.hint {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.hint--err {
+  color: var(--err-text);
+}
+
+/* --------------------------------------------------------------------------
+   6. Step 1 — Lot
+   -------------------------------------------------------------------------- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+}
+
+.card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card__value {
+  font-size: var(--fs-2xl);
+}
+
+.card__value--text {
+  font-size: var(--fs-xl);
+  font-weight: 500;
+}
+
+.card__meta {
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   7. Step 2 — Sampling
+   -------------------------------------------------------------------------- */
+
+.stat {
+  padding: 14px 18px;
+}
+
+.stat--lg {
+  padding: 22px;
+}
+
+.stat__value {
+  margin-top: 4px;
+  font-size: var(--fs-2xl);
+}
+
+.stat--accent {
+  border-color: var(--accent);
+}
+
+.stat--ok .label,
+.stat--ok .stat__value {
+  color: var(--ok-text);
+}
+
+.stat--err .label,
+.stat--err .stat__value {
+  color: var(--err-text);
+}
+
+.note {
+  padding: 18px 22px;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+   8. Step 3 — Units
+   -------------------------------------------------------------------------- */
+
+.unit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 14px 24px;
+}
+
+.unit-bar__id {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.unit-bar__title {
+  font-size: var(--fs-3xl);
+  font-weight: 500;
+}
+
+.chip {
+  padding: 5px 12px;
+  font-size: var(--fs-xs);
+}
+
+.char-list {
+  padding: 8px 28px;
+}
+
+.char-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.char-row:last-child {
+  border-bottom: 0;
+}
+
+.char-row__name {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+}
+
+.char-row__hint {
+  margin-top: 4px;
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+.char-row__hint--limits {
+  font-size: var(--fs-xs);
+}
+
+.char-row__alert {
+  margin-top: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--err-text);
+}
+
+.char-row__defect {
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  color: var(--accent-text);
+}
+
+.char-row__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.measure-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.measure-entry__input {
+  width: 120px;
+  text-align: center;
+  font-size: var(--fs-xl);
+}
+
+.measure-entry__unit {
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   9. Step 4 — Decision
+   -------------------------------------------------------------------------- */
+
+.decision {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 24px;
+}
+
+.decision__main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+.decision__sign {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 14px 18px;
+}
+
+.banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  font-size: var(--fs-base);
+}
+
+.summary {
+  padding: 18px;
+}
+
+.summary__value {
+  margin-top: 6px;
+  font-size: var(--fs-2xl);
+}
+
+.summary__value--err {
+  color: var(--err-text);
+}
+
+.proposal {
+  padding: 14px 18px;
+}
+
+.proposal__title {
+  margin-top: 6px;
+  font-size: var(--fs-4xl);
+  font-weight: 400;
+}
+
+.proposal__note {
+  margin-top: 6px;
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+.proposal--ok {
+  border-color: var(--ok-text);
+}
+
+.proposal--ok .proposal__title {
+  color: var(--ok-text);
+}
+
+.proposal--err {
+  border-color: var(--err-text);
+}
+
+.proposal--err .proposal__title {
+  color: var(--err-text);
+}
+
+.proposal--warn {
+  border-color: var(--warn-text);
+}
+
+.proposal--warn .proposal__title {
+  color: var(--warn-text);
+}
+
+.section-label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.defect-list {
+  padding: 6px 18px;
+}
+
+.defect-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.defect-row:last-child {
+  border-bottom: 0;
+}
+
+.defect-row__id {
+  margin-inline-end: 12px;
+  color: var(--accent-text);
+}
+
+.defect-row__unit {
+  margin-inline-start: 10px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.defect-empty {
+  padding: 14px 0;
+  color: var(--text-muted);
+}
+
+.pin-title {
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+}
+
+.pin-sub {
+  margin-top: 4px;
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+.pin-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  font-size: 24px;
+  letter-spacing: 0.4em;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.key {
+  height: var(--key-h);
+  border-radius: var(--r-field);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-inset);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  transition: background var(--dur-fast);
+}
+
+.key:hover:not(:disabled) {
+  background: var(--glass);
+}
+
+.key:disabled {
+  opacity: 0.45;
+}
+
+.key--text {
+  font-family: inherit;
+  font-size: var(--fs-base);
+}
+
+.key--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+  font-family: inherit;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.key--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+/* --------------------------------------------------------------------------
+   10. Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .decision {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --rail: 20px;
+  }
+
+  .app::before,
+  .app::after {
+    display: none;
+  }
+
+  .app-header__context,
+  .app-header__user {
+    display: none;
+  }
+
+  .page-title {
+    font-size: 32px;
+  }
+
+  .grid--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .grid--2,
+  .grid--3 {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .char-list {
+    padding: 8px 18px;
+  }
+
+  .step-nav {
+    flex-wrap: wrap;
+  }
+
+  .nav-step {
+    padding: 8px 12px;
+  }
+
+  .banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
